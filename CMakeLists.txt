@@ -134,6 +134,7 @@ pico_enable_stdio_uart(blink 0)  # Disable UART serial output (optional)
 
 # create map/bin/hex file etc.
 pico_add_extra_outputs(blink)
+
 # Note: the argument inside should correspond to the "XYXYXY" in the line
 # project(XYXYXY c cxx ASM)
 
