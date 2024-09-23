@@ -6,6 +6,7 @@
  */
 
 #include "pico/stdlib.h"
+#include <stdio.h>
 
 // Pico W devices use a GPIO on the WIFI chip for the LED,
 // so when building for Pico W, CYW43_WL_GPIO_LED_PIN will be defined
@@ -180,30 +181,50 @@ void gpio_event_string(char *buf, uint32_t events) {
     *buf++ = '\0';
 }
 
+// lab 3 ex 2
+/// \tag::timer_example[]
+volatile bool timer_fired = false;
+
+int64_t alarm_callback(alarm_id_t id, __unused void *user_data) {
+    printf("Timer %d fired!\n", (int) id);
+    timer_fired = true;
+    // Can return a value here in us to fire in the future
+    return 0;
+}
+
+bool repeating_timer_callback(__unused struct repeating_timer *t) {
+    printf("Repeat at %lld\n", time_us_64());
+    return true;
+}
+
 int main() {
 	stdio_init_all();  // Initialize USB serial
     int rc = pico_led_init();
     hard_assert(rc == PICO_OK);
 	
+	/*
 	//set 1
 	//testing loopback
 	// This sends and check if a is received.
 		// setup_uart();       // Set up UART1 for communication
 		// loopback_test();    // Enter the loopback test function
 	// end of testing
+	*/ 
 
+	/*
 	//set2
  	// setup_uart();       // Set up UART1 for communication
     // setup_button();     // Set up the button (GP22)
     // loop();  // Enter the main loop
+	*/
 
+	/*
 	printf("Hello GPIO IRQ\n");
 	//  This will set up the interrupt to detect button presses on GPIO 20.
 	// the onboard button on the Maker Pi Pico is physically connected to GP20,
 	//  you do not need to connect any external wires for it to work. The button will trigger interrupts directly on GPIO 20 (GP20).
 	// only for GP20
     gpio_set_irq_enabled_with_callback(20, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
-
 
 	// For level low (trigger when the pin is held low):
 	// gpio_set_irq_enabled_with_callback(20, GPIO_IRQ_LEVEL_LOW, true, &gpio_callback);
@@ -213,6 +234,37 @@ int main() {
 	
 	// Wait forever
     while (1);
+	*/
+
+	/* lab 3 exercise 2 */
+    // Call alarm_callback in 2 seconds
+    add_alarm_in_ms(2000, alarm_callback, NULL, false);
+
+    // Wait for alarm callback to set timer_fired
+    while (!timer_fired) {
+        tight_loop_contents();
+    }
+
+    // Create a repeating timer that calls repeating_timer_callback.
+    // If the delay is > 0 then this is the delay between the previous callback ending and the next starting.
+    // If the delay is negative (see below) then the next call to the callback will be exactly 500ms after the
+    // start of the call to the last callback
+    struct repeating_timer timer;
+    add_repeating_timer_ms(500, repeating_timer_callback, NULL, &timer);
+    sleep_ms(3000);
+    bool cancelled = cancel_repeating_timer(&timer);
+    printf("cancelled... %d\n", cancelled);
+    sleep_ms(2000);
+
+    // Negative delay so means we will call repeating_timer_callback, and call it again
+    // 500ms later regardless of how long the callback took to execute
+    add_repeating_timer_ms(-500, repeating_timer_callback, NULL, &timer);
+    sleep_ms(3000);
+    cancelled = cancel_repeating_timer(&timer);
+    printf("cancelled... %d\n", cancelled);
+    sleep_ms(2000);
+    printf("Done\n");
+
 
     return 0;
 }
