@@ -60,6 +60,8 @@ endif()
 pico_enable_stdio_usb(blink 1)   # Enable USB serial output
 pico_enable_stdio_uart(blink 0)  # Disable UART serial output (optional)
 
+# newly added
+# pico_enable_stdio_usb(hello_gpio_irq 1)
 
 # create map/bin/hex file etc.
 pico_add_extra_outputs(blink)
@@ -68,3 +70,5 @@ pico_add_extra_outputs(blink)
 # project(XYXYXY c cxx ASM)
 
 # add url via pico_set_program_url
+
+set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk)
