@@ -320,10 +320,8 @@ int main() {
 	uint trigPin = 1; // Define your trigger pin
     uint echoPin = 0; // Define your echo pin
 
-
     setupUltrasonicPins(trigPin, echoPin); // Setup the pins
-	// setupUltrasonicPins(0, 1);
-
+	
     while (true) 
     {
         uint64_t distanceCm = getDistanceInCm(trigPin, echoPin);
