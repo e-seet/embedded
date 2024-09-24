@@ -197,6 +197,56 @@ bool repeating_timer_callback(__unused struct repeating_timer *t) {
     return true;
 }
 
+// lab ex 3
+int timeout = 26100; // Timeout duration in microseconds
+
+void setupUltrasonicPins(uint trigPin, uint echoPin)
+{
+    gpio_init(trigPin);
+    gpio_init(echoPin);
+    gpio_set_dir(trigPin, GPIO_OUT);
+    gpio_set_dir(echoPin, GPIO_IN);
+}
+
+// Measure pulse width of the echo signal
+uint64_t getPulse(uint trigPin, uint echoPin)
+{
+    gpio_put(trigPin, 1); // Trigger the ultrasonic sensor
+    sleep_us(10);          // Wait 10 microseconds
+    gpio_put(trigPin, 0); // Stop the trigger
+
+    uint64_t width = 0;
+
+    // Wait for the echo signal to start
+    while (gpio_get(echoPin) == 0) tight_loop_contents(); // this inefficient due to the use of block-waiting, which can lead to unresponsive behavior
+    absolute_time_t startTime = get_absolute_time();
+
+    // Measure the duration of the echo signal
+    while (gpio_get(echoPin) == 1)  //this inefficient due to the use of block-waiting, which can lead to unresponsive behavior
+    {
+        width++;
+        sleep_us(1); // Increment width every microsecond
+        if (width > timeout) return 0; // Return 0 if timeout occurs
+    }
+    absolute_time_t endTime = get_absolute_time();
+    
+    return absolute_time_diff_us(startTime, endTime); // Return pulse duration
+}
+
+// Convert pulse length to centimeters
+uint64_t getDistanceInCm(uint trigPin, uint echoPin)
+{
+    uint64_t pulseLength = getPulse(trigPin, echoPin);
+    return pulseLength / 29 / 2; // Convert to cm
+}
+
+// Convert pulse length to inches
+uint64_t getDistanceInInch(uint trigPin, uint echoPin)
+{
+    uint64_t pulseLength = getPulse(trigPin, echoPin);
+    return (long)pulseLength / 74.f / 2.f; // Convert to inches
+}
+
 int main() {
 	stdio_init_all();  // Initialize USB serial
     int rc = pico_led_init();
@@ -238,33 +288,53 @@ int main() {
 
 	/* lab 3 exercise 2 */
     // Call alarm_callback in 2 seconds
-    add_alarm_in_ms(2000, alarm_callback, NULL, false);
+    // add_alarm_in_ms(2000, alarm_callback, NULL, false);
 
-    // Wait for alarm callback to set timer_fired
-    while (!timer_fired) {
-        tight_loop_contents();
+    // // Wait for alarm callback to set timer_fired
+    // while (!timer_fired) {
+    //     tight_loop_contents();
+    // }
+
+    // // Create a repeating timer that calls repeating_timer_callback.
+    // // If the delay is > 0 then this is the delay between the previous callback ending and the next starting.
+    // // If the delay is negative (see below) then the next call to the callback will be exactly 500ms after the
+    // // start of the call to the last callback
+    // struct repeating_timer timer;
+    // add_repeating_timer_ms(500, repeating_timer_callback, NULL, &timer);
+    // sleep_ms(3000);
+    // bool cancelled = cancel_repeating_timer(&timer);
+    // printf("cancelled... %d\n", cancelled);
+    // sleep_ms(2000);
+
+    // // Negative delay so means we will call repeating_timer_callback, and call it again
+    // // 500ms later regardless of how long the callback took to execute
+    // add_repeating_timer_ms(-500, repeating_timer_callback, NULL, &timer);
+    // sleep_ms(3000);
+    // cancelled = cancel_repeating_timer(&timer);
+    // printf("cancelled... %d\n", cancelled);
+    // sleep_ms(2000);
+    // printf("Done\n");
+
+
+	// lab ex 3
+	uint trigPin = 1; // Define your trigger pin
+    uint echoPin = 0; // Define your echo pin
+
+
+    setupUltrasonicPins(trigPin, echoPin); // Setup the pins
+	// setupUltrasonicPins(0, 1);
+
+    while (true) 
+    {
+        uint64_t distanceCm = getDistanceInCm(trigPin, echoPin);
+        uint64_t distanceInch = getDistanceInInch(trigPin, echoPin);
+
+        printf("Distance: %llu cm, %llu inches\n", distanceCm, distanceInch);
+        sleep_ms(1000); // Wait for 1 second before the next measurement
     }
-
-    // Create a repeating timer that calls repeating_timer_callback.
-    // If the delay is > 0 then this is the delay between the previous callback ending and the next starting.
-    // If the delay is negative (see below) then the next call to the callback will be exactly 500ms after the
-    // start of the call to the last callback
-    struct repeating_timer timer;
-    add_repeating_timer_ms(500, repeating_timer_callback, NULL, &timer);
-    sleep_ms(3000);
-    bool cancelled = cancel_repeating_timer(&timer);
-    printf("cancelled... %d\n", cancelled);
-    sleep_ms(2000);
-
-    // Negative delay so means we will call repeating_timer_callback, and call it again
-    // 500ms later regardless of how long the callback took to execute
-    add_repeating_timer_ms(-500, repeating_timer_callback, NULL, &timer);
-    sleep_ms(3000);
-    cancelled = cancel_repeating_timer(&timer);
-    printf("cancelled... %d\n", cancelled);
-    sleep_ms(2000);
-    printf("Done\n");
 
 
     return 0;
 }
+
+

@@ -24,7 +24,7 @@
             "args": [
                 "load",
                 "${workspaceFolder}/build/blink.uf2",
-                "-fx"
+                "-f"
             ],
             "presentation": {
                 "reveal": "always",
