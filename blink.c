@@ -153,6 +153,13 @@ void gpio_callback(uint gpio, uint32_t events) {
     printf("GPIO %d %s\n", gpio, event_str);
 }
 
+void gpio_callback2(uint gpio, uint32_t events) {
+    // Put the GPIO event(s) that just happened into event_str
+    // so we can print it
+    gpio_event_string(event_str, events);
+    printf("GPIO! %d %s\n", gpio, event_str);
+}
+
 static const char *gpio_irq_str[] = {
         "LEVEL_LOW",  // 0x1
         "LEVEL_HIGH", // 0x2
@@ -247,11 +254,45 @@ uint64_t getDistanceInInch(uint trigPin, uint echoPin)
     return (long)pulseLength / 74.f / 2.f; // Convert to inches
 }
 
+// lab3 exercise
+
+// #include "lwip/sockets.h"  // For socket functions and types like socklen_t
+// #include "lwip/inet.h"     // For INADDR_ANY and other networking definitions
+// #include "lwipopts/lwipopts.h"
+
+#include "lwip/sockets.h"  // For socket functions and types like socklen_t
+#include "lwip/inet.h"     // For INADDR_ANY and other networking definitions
+
+#define PORT 12345  // The port your TCP server will listen on
+
+// Function to send printf output over TCP
+void send_tcp_output(int client_fd, const char *output) {
+    lwip_send(client_fd, output, strlen(output), 0);
+}
+
+
+
 int main() {
 	stdio_init_all();  // Initialize USB serial
     int rc = pico_led_init();
     hard_assert(rc == PICO_OK);
 	
+	//wifi mod
+	if (cyw43_arch_init()) {
+        printf("Failed to initialize Wi-Fi module\n");
+        return -1;
+    }
+
+    // Attempt to connect to the Wi-Fi network
+    printf("Connecting to Wi-Fi...\n");
+    if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 10000)) {
+        printf("Failed to connect to Wi-Fi\n");
+    } else 
+	{
+        printf("Connected to Wi-Fi!\n");
+        // You can now use network functions (e.g., to send/receive data)
+    }
+
 	/*
 	//set 1
 	//testing loopback
@@ -286,7 +327,7 @@ int main() {
     while (1);
 	*/
 
-	/* lab 3 exercise 2 */
+	/* lab 3 exercise 2 
     // Call alarm_callback in 2 seconds
     // add_alarm_in_ms(2000, alarm_callback, NULL, false);
 
@@ -314,15 +355,13 @@ int main() {
     // printf("cancelled... %d\n", cancelled);
     // sleep_ms(2000);
     // printf("Done\n");
+	*/
 
-
-	// lab ex 3
+	/* lab ex 3 
 	uint trigPin = 1; // Define your trigger pin
     uint echoPin = 0; // Define your echo pin
 
-
     setupUltrasonicPins(trigPin, echoPin); // Setup the pins
-	// setupUltrasonicPins(0, 1);
 
     while (true) 
     {
@@ -332,8 +371,68 @@ int main() {
         printf("Distance: %llu cm, %llu inches\n", distanceCm, distanceInch);
         sleep_ms(1000); // Wait for 1 second before the next measurement
     }
+	// */
+
+	// lab 3 exercise to submit
+	// The objective is to develop a simple stopwatch application. The stopwatch will 
+	// be controlled by a single button on GP21. Pressing and holding this button starts 
+	// the timer, and the elapsed time in seconds will be continuously displayed on the Serial
+	//  Monitor. 
+	// Releasing the button stops the timer and resets the displayed time to zero.
+	//  To ensure a smooth user experience and accurate timekeeping, the GP21 button input will be debounced, 
+	// and timer interrupts must be employed.
 
 
+ // Create a TCP socket
+    int server_fd = lwip_socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        printf("Failed to create socket\n");
+        return -1;
+    }
+
+    // Bind to an IP address and port
+    struct sockaddr_in server_addr2;
+	struct sockaddr_in client_addr;
+	socklen_t client_len = sizeof(client_addr);
+
+    server_addr2.sin_family = AF_INET;
+    server_addr2.sin_port = htons(PORT);
+    server_addr2.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    if (lwip_bind(server_fd, (struct sockaddr *)&server_addr2, sizeof(server_addr2)) < 0) {
+        printf("Failed to bind socket\n");
+        return -1;
+    }
+
+    // Listen for incoming connections
+    lwip_listen(server_fd, 1);
+    printf("Listening on port %d\n", PORT);
+
+    while (1) {
+        // Accept incoming connectionstruct sockaddr_in client_addr;
+        socklen_t client_len = sizeof(client_addr);
+        int client_fd = lwip_accept(server_fd, (struct sockaddr *)&client_addr, &client_len);
+        if (client_fd >= 0) {
+            printf("Client connected\n");
+
+            // Redirect `printf` output to TCP client
+            char output_buffer[1024];
+            sprintf(output_buffer, "Hello from Pico W via Wi-Fi!\n");
+            send_tcp_output(client_fd, output_buffer);
+
+            // Close connection when done
+            lwip_close(client_fd);
+        }
+    }
+
+    // Close the server socket when done
+    lwip_close(server_fd);
+    cyw43_arch_deinit();
+
+
+
+    // gpio_set_irq_enabled_with_callback(21, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, &gpio_callback2);
+	
     return 0;
 }
 
