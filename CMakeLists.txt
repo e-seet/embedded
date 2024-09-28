@@ -71,4 +71,10 @@ pico_add_extra_outputs(blink)
 
 # add url via pico_set_program_url
 
-set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk)
+# set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk)
+
+
+
+
+
+

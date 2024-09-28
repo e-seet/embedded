@@ -14,12 +14,15 @@
 #include "pico/cyw43_arch.h"
 #endif
 
-// Perform initialisation
+
+// next exercise: on UART communiactions
+// #define UART_ID uart1
+#define BAUD_RATE 115200
+// #define BTN_PIN 22     // GP22 (Button)
+
 int pico_led_init(void) 
 {
 	#if defined(PICO_DEFAULT_LED_PIN)
-		// A device like Pico that uses a GPIO for the LED will define PICO_DEFAULT_LED_PIN
-		// so we can use normal GPIO functionality to turn the led on and off
 		gpio_init(PICO_DEFAULT_LED_PIN);
 		gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 		return PICO_OK;
@@ -29,309 +32,178 @@ int pico_led_init(void)
 	#endif
 }
 
-// next exercise: on UART communiactions
-#define UART_ID uart1
-#define BAUD_RATE 115200
+// // lab3
+// static char event_str[128];
 
-#define UART_TX_PIN_8 8  // GP8 (TX)
-#define UART_RX_PIN_9 9  // GP9 (RX)
-#define BTN_PIN 22     // GP22 (Button)
+// void gpio_event_string(char *buf, uint32_t events);
 
-void setup_uart() 
-{
-    // Initialize UART1 at the desired baud rate
-    uart_init(UART_ID, BAUD_RATE);
+// static const char *gpio_irq_str[] = {
+//         "LEVEL_LOW",  // 0x1
+//         "LEVEL_HIGH", // 0x2
+//         "EDGE_FALL",  // 0x4
+//         "EDGE_RISE"   // 0x8
+// };
+
+// #define BTN_PIN_21 21     // GP22 (Button)
+
+// volatile bool running = false;
+// volatile uint32_t elapsed_time = 0;
+// volatile bool button_pressed = false;
+// volatile absolute_time_t last_debounce_time;
+// const uint32_t debounce_delay_ms = 100;  // Debounce delay (in ms)
+
+// // setup button
+// void setup_button_21() 
+// {
+//     // Set GP21 as input with pull-down
+//     gpio_init(BTN_PIN_21);
+//     gpio_set_dir(BTN_PIN_21, GPIO_IN);
+//     gpio_pull_down(BTN_PIN_21);
+// }
+
+// // Timer callback function to increment the elapsed time
+// bool timer_callback(struct repeating_timer *t)
+// {
+//     if (running) 
+// 	{
+//         elapsed_time++;
+//         printf("Elapsed: %d seconds\n", elapsed_time);
+//     }
+//     return true;  // Repeat the timer callback
+// }
+
+// Debounce the button and start/stop the timer
+// void debounce_button() {
+//     bool current_state = gpio_get(BTN_PIN_21);
+	
+// 	// get current time. Given function
+//     absolute_time_t now = get_absolute_time();
     
-    // Set GPIO pins for UART1 TX (GP8) and RX (GP9)
-    gpio_set_function(UART_TX_PIN_8, GPIO_FUNC_UART);
-    gpio_set_function(UART_RX_PIN_9, GPIO_FUNC_UART);
-}
+//     // Check if button state has been stable for debounce delay
+//     if (absolute_time_diff_us(last_debounce_time, now) >= debounce_delay_ms * 1000)
+// 	 {
+//         if (current_state && !button_pressed) 
+// 		{
+//             // Button was pressed (start the timer)
+//             running = true;
+//             button_pressed = true;
+//             printf("Button pressed, starting timer.\n");
+//         } 
+// 		else if (!current_state && button_pressed) 
+// 		{
+//             // Button was released (stop and reset the timer)
+//             running = false;
+//             button_pressed = false;
+//             elapsed_time = 0;
+//             printf("Button released, resetting timer.\n");
+//         }
+//         last_debounce_time = now;
+//     }
+// }
+
+// Interrupt Service Routine (ISR) for the button press
+// void gpio_callback_2(uint gpio, uint32_t events) {
+//     debounce_button();
+// }
+
+
+#define BUTTON_PIN 21
 
 void setup_button() 
 {
     // Set GP22 as input with pull-down
-    gpio_init(BTN_PIN);
-    gpio_set_dir(BTN_PIN, GPIO_IN);
-    gpio_pull_down(BTN_PIN);
+    // gpio_init(BTN_PIN);
+    gpio_init(BUTTON_PIN);
+	
+    // gpio_set_dir(BTN_PIN, GPIO_IN);
+    // gpio_pull_down(BTN_PIN);
+
+    gpio_set_dir(BUTTON_PIN, GPIO_IN);
+    gpio_pull_down(BUTTON_PIN);
 }
 
-void send_data_via_uart(uint8_t data)
-{
-    // Send the data via UART
-    uart_putc(UART_ID, data);
-}
+// Global variables for time tracking
+volatile uint32_t elapsed_time = 0;  // Elapsed time in seconds
+volatile bool timer_active = false;  // Is the timer running?
+volatile bool button_pressed = false;
 
-char receive_data_via_uart()
-{
-    // Read a character from UART
-    if (uart_is_readable(UART_ID))
-        return uart_getc(UART_ID);
-	else
-		printf("not readable\n");
-    return 0;
-}
-
-void loop() {
-    static char letter = 'A';
-    static bool btn_state = false;
-    uint32_t delay_ms = 1000;
-
-    while (true)
-	{
-        // Check button state
-        bool is_pressed = gpio_get(BTN_PIN);
-
-        if (is_pressed && !btn_state) 
-            btn_state = true;  // Button just pressed
-		else if (!is_pressed && btn_state) 
-            btn_state = false;  // Button just released
-
-        // Transmit logic based on button state
-        if (is_pressed) 
-		{
-    		// uart_putc(UART_ID, '1');
-			send_data_via_uart('1');  // Send '1' every second when button is not pressed
-        } 
-		else 
-		{
-            send_data_via_uart(letter);  // Send current letter
-    		// uart_putc(UART_ID, letter);
-
-            letter++;  // Move to next letter
-            if (letter > 'Z') {
-                letter = 'A';  // Loop back to 'A' after 'Z'
-            }
-        }
-
-        // Receive and process incoming data
-        char received_char = receive_data_via_uart();
-        if (received_char) 
-		{
-            if (received_char >= 'A' && received_char <= 'Z')
-			{
-                // Convert uppercase to lowercase
-                char lowercase_char = received_char + ('a' - 'A');
-                printf("%c\n", lowercase_char);
-            } 
-			else if (received_char == '1')
-			{
-				printf("2\n");
-            }
-        }
-        // Delay for 1 second
-        sleep_ms(delay_ms);
+// Timer callback function (called every second)
+bool repeating_timer_callback(struct repeating_timer *t) {
+    if (timer_active) {
+        elapsed_time++;
+        printf("Elapsed time: %d seconds\n", elapsed_time);
     }
-}
-
-// // Send a character 'A' via UART every 2 sec
-// void loopback_test()
-// {
-//     while (true)
-// 	{
-//         uart_putc(UART_ID, 'A');
-//         sleep_ms(500);
-//         if (uart_is_readable(UART_ID)) 
-// 		{
-//             char received = uart_getc(UART_ID);
-//             printf("Received: %c\n", received);
-//         } 
-// 		else 
-//             printf("No data received!\n");
-//         sleep_ms(1000);
-//     }
-// }
-
-// lab3
-static char event_str[128];
-
-void gpio_event_string(char *buf, uint32_t events);
-
-void gpio_callback(uint gpio, uint32_t events) {
-    // Put the GPIO event(s) that just happened into event_str
-    // so we can print it
-    gpio_event_string(event_str, events);
-    printf("GPIO %d %s\n", gpio, event_str);
-}
-
-static const char *gpio_irq_str[] = {
-        "LEVEL_LOW",  // 0x1
-        "LEVEL_HIGH", // 0x2
-        "EDGE_FALL",  // 0x4
-        "EDGE_RISE"   // 0x8
-};
-
-void gpio_event_string(char *buf, uint32_t events) {
-    for (uint i = 0; i < 4; i++) {
-        uint mask = (1 << i);
-        if (events & mask) {
-            // Copy this event string into the user string
-            const char *event_str = gpio_irq_str[i];
-            while (*event_str != '\0') {
-                *buf++ = *event_str++;
-            }
-            events &= ~mask;
-
-            // If more events add ", "
-            if (events) {
-                *buf++ = ',';
-                *buf++ = ' ';
-            }
-        }
-    }
-    *buf++ = '\0';
-}
-
-// lab 3 ex 2
-/// \tag::timer_example[]
-volatile bool timer_fired = false;
-
-int64_t alarm_callback(alarm_id_t id, __unused void *user_data) {
-    printf("Timer %d fired!\n", (int) id);
-    timer_fired = true;
-    // Can return a value here in us to fire in the future
-    return 0;
-}
-
-bool repeating_timer_callback(__unused struct repeating_timer *t) {
-    printf("Repeat at %lld\n", time_us_64());
     return true;
 }
 
-// lab ex 3
-int timeout = 26100; // Timeout duration in microseconds
-
-void setupUltrasonicPins(uint trigPin, uint echoPin)
-{
-    gpio_init(trigPin);
-    gpio_init(echoPin);
-    gpio_set_dir(trigPin, GPIO_OUT);
-    gpio_set_dir(echoPin, GPIO_IN);
-}
-
-// Measure pulse width of the echo signal
-uint64_t getPulse(uint trigPin, uint echoPin)
-{
-    gpio_put(trigPin, 1); // Trigger the ultrasonic sensor
-    sleep_us(10);          // Wait 10 microseconds
-    gpio_put(trigPin, 0); // Stop the trigger
-
-    uint64_t width = 0;
-
-    // Wait for the echo signal to start
-    while (gpio_get(echoPin) == 0) tight_loop_contents(); // this inefficient due to the use of block-waiting, which can lead to unresponsive behavior
-    absolute_time_t startTime = get_absolute_time();
-
-    // Measure the duration of the echo signal
-    while (gpio_get(echoPin) == 1)  //this inefficient due to the use of block-waiting, which can lead to unresponsive behavior
-    {
-        width++;
-        sleep_us(1); // Increment width every microsecond
-        if (width > timeout) return 0; // Return 0 if timeout occurs
-    }
-    absolute_time_t endTime = get_absolute_time();
+// Debounce logic for button press
+bool debounce_button() {
+    static uint32_t last_time = 0;
+    uint32_t current_time = time_us_32();
     
-    return absolute_time_diff_us(startTime, endTime); // Return pulse duration
+    if (current_time - last_time > 200000) { // Debounce time: 200ms
+        last_time = current_time;
+        return true;
+    }
+    return false;
 }
 
-// Convert pulse length to centimeters
-uint64_t getDistanceInCm(uint trigPin, uint echoPin)
-{
-    uint64_t pulseLength = getPulse(trigPin, echoPin);
-    return pulseLength / 29 / 2; // Convert to cm
+// GPIO interrupt handler for the button
+void gpio_callback_set2(uint gpio, uint32_t events) {
+    if (gpio == BUTTON_PIN && debounce_button()) {
+        if (gpio_get(BUTTON_PIN) == 0) {  // Button pressed
+            if (!button_pressed) 
+			{
+                timer_active = true;
+                button_pressed = true;
+                printf("Timer started!\n");
+	        	printf("Elapsed time: %d seconds\n", elapsed_time);
+
+            }
+        } else {  // Button released
+            timer_active = false;
+            button_pressed = false;
+            elapsed_time = 0;
+            printf("Timer stopped and reset!\n");
+        }
+    }
 }
 
-// Convert pulse length to inches
-uint64_t getDistanceInInch(uint trigPin, uint echoPin)
-{
-    uint64_t pulseLength = getPulse(trigPin, echoPin);
-    return (long)pulseLength / 74.f / 2.f; // Convert to inches
-}
 
 int main() {
 	stdio_init_all();  // Initialize USB serial
     int rc = pico_led_init();
     hard_assert(rc == PICO_OK);
 	
-	/*
-	//set 1
-	//testing loopback
-	// This sends and check if a is received.
-		// setup_uart();       // Set up UART1 for communication
-		// loopback_test();    // Enter the loopback test function
-	// end of testing
-	*/ 
-
-	/*
-	//set2
- 	// setup_uart();       // Set up UART1 for communication
-    // setup_button();     // Set up the button (GP22)
-    // loop();  // Enter the main loop
-	*/
-
-	/*
-	printf("Hello GPIO IRQ\n");
-	//  This will set up the interrupt to detect button presses on GPIO 20.
-	// the onboard button on the Maker Pi Pico is physically connected to GP20,
-	//  you do not need to connect any external wires for it to work. The button will trigger interrupts directly on GPIO 20 (GP20).
-	// only for GP20
-    gpio_set_irq_enabled_with_callback(20, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
-
-	// For level low (trigger when the pin is held low):
-	// gpio_set_irq_enabled_with_callback(20, GPIO_IRQ_LEVEL_LOW, true, &gpio_callback);
-    
-	// For level high (trigger when the pin is held high):
-	// gpio_set_irq_enabled_with_callback(20, GPIO_IRQ_LEVEL_HIGH, true, &gpio_callback);
+	//exercise
+	// The objective is to develop a simple stopwatch application. 
+	// The stopwatch will be controlled by a single button on GP21. 
 	
-	// Wait forever
-    while (1);
-	*/
+	// 1. Pressing and holding this button starts the timer, and the 
+	// elapsed time in seconds will be continuously displayed on the
+	//  Serial Monitor. 
 
-	/* lab 3 exercise 2 */
-    // Call alarm_callback in 2 seconds
-    // add_alarm_in_ms(2000, alarm_callback, NULL, false);
+	// 2. Releasing the button stops the timer and resets 
+	// the displayed time to zero. 
+	// To ensure a smooth user experience and accurate timekeeping, the GP21 button input will be debounced, 
+	// and timer interrupts must be employed.
 
-    // // Wait for alarm callback to set timer_fired
-    // while (!timer_fired) {
-    //     tight_loop_contents();
-    // }
+    setup_button();     // Set up the button (GP21)
 
-    // // Create a repeating timer that calls repeating_timer_callback.
-    // // If the delay is > 0 then this is the delay between the previous callback ending and the next starting.
-    // // If the delay is negative (see below) then the next call to the callback will be exactly 500ms after the
-    // // start of the call to the last callback
-    // struct repeating_timer timer;
-    // add_repeating_timer_ms(500, repeating_timer_callback, NULL, &timer);
-    // sleep_ms(3000);
-    // bool cancelled = cancel_repeating_timer(&timer);
-    // printf("cancelled... %d\n", cancelled);
-    // sleep_ms(2000);
+//set 2
+	  // Set up GPIO interrupt for button press
+    gpio_set_irq_enabled_with_callback(BUTTON_PIN, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &gpio_callback_set2);
 
-    // // Negative delay so means we will call repeating_timer_callback, and call it again
-    // // 500ms later regardless of how long the callback took to execute
-    // add_repeating_timer_ms(-500, repeating_timer_callback, NULL, &timer);
-    // sleep_ms(3000);
-    // cancelled = cancel_repeating_timer(&timer);
-    // printf("cancelled... %d\n", cancelled);
-    // sleep_ms(2000);
-    // printf("Done\n");
+    // Create a repeating timer (fires every 1000ms or 1 second)
+    struct repeating_timer timer;
+    add_repeating_timer_ms(1000, repeating_timer_callback, NULL, &timer);
 
-
-	// lab ex 3
-	uint trigPin = 1; // Define your trigger pin
-    uint echoPin = 0; // Define your echo pin
-
-    setupUltrasonicPins(trigPin, echoPin); // Setup the pins
-	
-    while (true) 
-    {
-        uint64_t distanceCm = getDistanceInCm(trigPin, echoPin);
-        uint64_t distanceInch = getDistanceInInch(trigPin, echoPin);
-
-        printf("Distance: %llu cm, %llu inches\n", distanceCm, distanceInch);
-        sleep_ms(1000); // Wait for 1 second before the next measurement
+    // Main loop
+    while (true) {
+        tight_loop_contents();  // Wait for events
     }
 
-
+	
     return 0;
 }
 
