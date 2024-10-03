@@ -92,6 +92,31 @@ include($ENV{PICO_SDK_PATH}/pico_sdk_init.cmake)
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
+
+# FreeRTOS Kernel Path
+include($ENV{FREERTOS_KERNEL_PATH}/include/FreeRTOS.h)
+
+# include("/Users/eddieseet/FreeRTOS-Kernel/include/FreeRTOS.h")
+
+set(FREERTOS_KERNEL_PATH "/Users/eddieseet/FreeRTOS-Kernel")
+# Add FreeRTOS Kernel Source
+add_library(freertos
+	${FREERTOS_KERNEL_PATH}/portable/GCC/ARM_CM0/port.c
+    ${FREERTOS_KERNEL_PATH}/portable/MemMang/heap_4.c
+    ${FREERTOS_KERNEL_PATH}/tasks.c
+    ${FREERTOS_KERNEL_PATH}/list.c
+    ${FREERTOS_KERNEL_PATH}/queue.c
+    ${FREERTOS_KERNEL_PATH}/timers.c
+    ${FREERTOS_KERNEL_PATH}/event_groups.c
+)
+# Add FreeRTOS include directories
+target_include_directories(freertos PUBLIC
+    ${FREERTOS_KERNEL_PATH}/include
+    ${FREERTOS_KERNEL_PATH}/portable/GCC/ARM_CM0
+)
+
+
+
 # Project name is 'blink'
 project(blink C CXX ASM)
 
@@ -103,7 +128,13 @@ add_executable(blink
     )
 
 # Link the standard Pico libraries
-target_link_libraries(blink pico_stdlib hardware_pwm hardware_adc)
+target_link_libraries(
+	blink 
+	pico_stdlib
+	hardware_pwm
+	hardware_adc 
+	freertos
+)
 
 if (PICO_CYW43_SUPPORTED)
     target_link_libraries(blink pico_cyw43_arch_none)

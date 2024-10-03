@@ -41,6 +41,7 @@
 		"*.embeddedhtml": "html",
 		"*.py": "python",
 		"*.vue": "vue",
-		"uart.h": "c"
+		"uart.h": "c",
+		"portasm.h": "c"
 	}
 }
