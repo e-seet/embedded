@@ -42,6 +42,9 @@
 		"*.py": "python",
 		"*.vue": "vue",
 		"uart.h": "c",
-		"portasm.h": "c"
+		"portasm.h": "c",
+		"freertos.h": "c",
+		"stdlib.h": "c",
+		"adc.h": "c"
 	}
 }
