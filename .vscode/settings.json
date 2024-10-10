@@ -47,6 +47,9 @@
 		"stdlib.h": "c",
 		"adc.h": "c",
 		"cyw43_arch.h": "c",
-		"irq.h": "c"
+		"irq.h": "c",
+		"semphr.h": "c",
+		"task.h": "c",
+		"stdio.h": "c"
 	}
 }
