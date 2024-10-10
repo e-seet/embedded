@@ -1,25 +1,35 @@
-#ifndef _LWIPOPTS_H
-#define _LWIPOPTS_H
+#ifndef LWIPOPTS_H
+#define LWIPOPTS_H
 
-// Generally you would define your own explicit list of lwIP options
-// (see https://www.nongnu.org/lwip/2_1_x/group__lwip__opts.html)
-//
-// This example uses a common include to avoid repetition
-#include "lwipopts_examples_common.h"
-
-#if !NO_SYS
-#define TCPIP_THREAD_STACKSIZE 1024
-#define DEFAULT_THREAD_STACKSIZE 2048
-#define DEFAULT_RAW_RECVMBOX_SIZE 8
-#define TCPIP_MBOX_SIZE 8
+/* Avoid redefinition of timeval */
 #define LWIP_TIMEVAL_PRIVATE 0
 
-// not necessary, can be done either way
-#define LWIP_TCPIP_CORE_LOCKING_INPUT 1
+/* Enable IP features */
+#define LWIP_IPV4                   1
+#define LWIP_IPV6                   0
 
-// ping_thread sets socket receive timeout, so enable this feature
-#define LWIP_SO_RCVTIMEO 1
-#endif
+/* Enable DHCP */
+#define LWIP_DHCP                   1
 
+/* Enable DNS */
+#define LWIP_DNS                    1
 
-#endif
+/* Enable TCP and UDP */
+#define LWIP_TCP                    1
+#define LWIP_UDP                    1
+
+/* Memory options */
+#define MEM_SIZE                    10240   /* Adjust memory size for lwIP */
+
+#define MEMP_NUM_TCP_PCB             5
+#define MEMP_NUM_UDP_PCB             5
+
+/* Enable the lwIP netconn and socket APIs */
+#define LWIP_NETCONN                1
+#define LWIP_SOCKET                 1
+
+/* Set NO_SYS to 0 since you are using FreeRTOS */
+#define NO_SYS                      0
+#define SYS_LIGHTWEIGHT_PROT        1
+
+#endif /* LWIPOPTS_H */

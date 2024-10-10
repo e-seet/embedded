@@ -4,7 +4,8 @@
             "name": "Pico",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${userHome}/.pico-sdk/sdk/2.0.0/**"
+                "${userHome}/.pico-sdk/sdk/2.0.0/**",
+                "/Users/eddieseet/FreeRTOS-Kernel/portable/ARMv8M/non_secure/portable/GCC/ARM_CM23"
             ],
             "forcedInclude": [
                 "${userHome}/.pico-sdk/sdk/2.0.0/src/common/pico_base_headers/include/pico.h",
