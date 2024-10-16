@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include <stdio.h>
+
 #include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
 
@@ -12,6 +14,12 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "ping.h"
+#include "message_buffer.h"
+
+#include "hardware/gpio.h"
+#include "hardware/adc.h"
+
+#define mbaTASK_MESSAGE_BUFFER_SIZE       ( 60 )
 
 #ifndef PING_ADDR
 #define PING_ADDR "142.251.35.196"
@@ -21,6 +29,25 @@
 #endif
 
 #define TEST_TASK_PRIORITY				( tskIDLE_PRIORITY + 1UL )
+
+static MessageBufferHandle_t xControlMessageBuffer;
+static MessageBufferHandle_t xControlMessageBufferForSimpleAvg;
+static MessageBufferHandle_t xPrintfMessageBufferForMovingAvg;
+static MessageBufferHandle_t xPrintfMessageBufferForSimpleAvg;
+
+
+
+
+float read_onboard_temperature() {
+    
+    /* 12-bit conversion, assume max value == ADC_VREF == 3.3 V */
+    const float conversionFactor = 3.3f / (1 << 12);
+
+    float adc = (float)adc_read() * conversionFactor;
+    float tempC = 27.0f - (adc - 0.706f) / 0.001721f;
+
+    return tempC;
+}
 
 void main_task(__unused void *params) {
     if (cyw43_arch_init()) {
@@ -48,11 +75,132 @@ void main_task(__unused void *params) {
     cyw43_arch_deinit();
 }
 
+/* A Task that blinks the LED for 3000 ticks continuously */
+void led_task(__unused void *params) {
+    while(true) {
+        vTaskDelay(3000);
+        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+        vTaskDelay(3000);
+        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+    }
+}
+
+/* A Task that obtains the data every 1000 ticks from the inbuilt temperature sensor (RP2040), prints it out and sends it to avg_task via message buffer */
+void temp_task(__unused void *params) {
+    float temperature = 0.0;
+
+    adc_init();
+    adc_set_temp_sensor_enabled(true);
+    adc_select_input(4);
+
+    while(true) {
+        vTaskDelay(1000);
+        temperature = read_onboard_temperature();
+        //printf("Onboard temperature = %.02f C\n", temperature);
+        xMessageBufferSend( 
+            xControlMessageBuffer,    /* The message buffer to write to. */
+            (void *) &temperature,    /* The source of the data to send. */
+            sizeof( temperature ),    /* The length of the data to send. */
+            0 );                      /* Do not block, should the buffer be full. */
+
+        xMessageBufferSend( 
+            xControlMessageBufferForSimpleAvg,    /* The message buffer to write to --> for simple average */
+            (void *) &temperature,    /* The source of the data to send. */
+            sizeof( temperature ),    /* The length of the data to send. */
+            0 );  
+    }
+}
+
+/* A Task that indefinitely waits for data from temp_task via message buffer. Once received, it will calculate the moving average and prints out the result. */
+void moving_avg_task(__unused void *params) {
+    float fReceivedData;
+    float sum = 0;
+    size_t xReceivedBytes;
+    
+    static float data[10] = {0};
+    static int index = 0;
+    static int count = 0;
+    float moving_avg = 0;
+
+    while(true) {
+        xReceivedBytes = xMessageBufferReceive( 
+            xControlMessageBuffer,        /* The message buffer to receive from. */
+            (void *) &fReceivedData,      /* Location to store received data. */
+            sizeof( fReceivedData ),      /* Maximum number of bytes to receive. */
+            portMAX_DELAY );              /* Wait indefinitely */
+
+            sum -= data[index];            // Subtract the oldest element from sum
+            data[index] = fReceivedData;   // Assign the new element to the data
+            sum += data[index];            // Add the new element to sum
+            index = (index + 1) % 10;       // Update the index - make it circular
+            
+            if (count < 10) count++;        // Increment count till it reaches 4
+
+            moving_avg = sum / count;
+
+            xMessageBufferSend(xPrintfMessageBufferForMovingAvg, &moving_avg, sizeof(moving_avg), 0);
+    }
+}
+
+void simple_Avg_Task(__unused void *params){
+    float fReceivedData;
+    float sum = 0;
+    int count = 0;
+    float simple_avg = 0;
+
+    while(true) {
+        xMessageBufferReceive(xControlMessageBufferForSimpleAvg, &fReceivedData, sizeof(fReceivedData), portMAX_DELAY);
+
+        // Update the total sum and count
+        sum += fReceivedData;
+        count++;
+
+        simple_avg = sum / count;
+
+        xMessageBufferSend(xPrintfMessageBufferForSimpleAvg, &simple_avg, sizeof(simple_avg), 0);
+    }
+}
+
+void printf_task(__unused void *params) {
+    float data;
+    float data2; //for simple average
+    while (true) {
+        // Wait indefinitely to receive data for printing
+        xMessageBufferReceive(xPrintfMessageBufferForMovingAvg, &data, sizeof(data), portMAX_DELAY);
+
+        // Print the received data (could be from either the moving avg or simple avg task)
+        printf("Moving Average Temperature = %0.2f C\n", data);
+
+        xMessageBufferReceive(xPrintfMessageBufferForSimpleAvg, &data2, sizeof(data2), portMAX_DELAY);
+
+        printf("Simple Average Temperature = %0.2f C\n", data2);
+
+    }
+}
+
 void vLaunch( void) {
     TaskHandle_t task;
     xTaskCreate(main_task, "TestMainThread", configMINIMAL_STACK_SIZE, NULL, TEST_TASK_PRIORITY, &task);
+    TaskHandle_t ledtask;
+    xTaskCreate(led_task, "TestLedThread", configMINIMAL_STACK_SIZE, NULL, 7, &ledtask);
+    TaskHandle_t temptask;
+    xTaskCreate(temp_task, "TestTempThread", configMINIMAL_STACK_SIZE, NULL, 8, &temptask);
+    TaskHandle_t avgtask;
+    xTaskCreate(moving_avg_task, "TestAvgThread", configMINIMAL_STACK_SIZE, NULL, 5, &avgtask);
+    TaskHandle_t simpleAvgtask;
+    xTaskCreate(simple_Avg_Task, "TestSimpleAvgThtread", configMINIMAL_STACK_SIZE, NULL, 5, &simpleAvgtask);
+    TaskHandle_t printfTask;
+    xTaskCreate(printf_task, "PrintfThread", configMINIMAL_STACK_SIZE, NULL, 5, &printfTask);
 
-#if NO_SYS && configUSE_CORE_AFFINITY && configNUMBER_OF_CORES > 1
+    xControlMessageBuffer = xMessageBufferCreate(mbaTASK_MESSAGE_BUFFER_SIZE); //used for moving average
+    xControlMessageBufferForSimpleAvg = xMessageBufferCreate(mbaTASK_MESSAGE_BUFFER_SIZE); //used for simple average
+    xPrintfMessageBufferForMovingAvg = xMessageBufferCreate(mbaTASK_MESSAGE_BUFFER_SIZE);
+    xPrintfMessageBufferForSimpleAvg = xMessageBufferCreate(mbaTASK_MESSAGE_BUFFER_SIZE);
+
+
+
+
+#if NO_SYS && configUSE_CORE_AFFINITY && configNUM_CORES > 1
     // we must bind the main task to one core (well at least while the init is called)
     // (note we only do this in NO_SYS mode, because cyw43_arch_freertos
     // takes care of it otherwise)
@@ -69,13 +217,13 @@ int main( void )
 
     /* Configure the hardware ready to run the demo. */
     const char *rtos_name;
-#if ( configNUMBER_OF_CORES > 1 )
+#if ( portSUPPORT_SMP == 1 )
     rtos_name = "FreeRTOS SMP";
 #else
     rtos_name = "FreeRTOS";
 #endif
 
-#if ( configNUMBER_OF_CORES == 2 )
+#if ( portSUPPORT_SMP == 1 ) && ( configNUM_CORES == 2 )
     printf("Starting %s on both cores:\n", rtos_name);
     vLaunch();
 #elif ( RUN_FREERTOS_ON_CORE == 1 )

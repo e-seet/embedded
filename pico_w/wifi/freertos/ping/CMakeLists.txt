@@ -9,7 +9,6 @@ if (EXISTS ${PICO_LWIP_CONTRIB_PATH}/apps/ping/ping.c)
             )
     target_include_directories(picow_freertos_ping_nosys PRIVATE
             ${CMAKE_CURRENT_LIST_DIR}
-            ${CMAKE_CURRENT_LIST_DIR}/.. # for our common FreeRTOSConfig
             ${CMAKE_CURRENT_LIST_DIR}/../.. # for our common lwipopts
             ${PICO_LWIP_CONTRIB_PATH}/apps/ping
             )
@@ -34,15 +33,17 @@ if (EXISTS ${PICO_LWIP_CONTRIB_PATH}/apps/ping/ping.c)
             )
     target_include_directories(picow_freertos_ping_sys PRIVATE
             ${CMAKE_CURRENT_LIST_DIR}
-            ${CMAKE_CURRENT_LIST_DIR}/.. # for our common FreeRTOSConfig
             ${CMAKE_CURRENT_LIST_DIR}/../.. # for our common lwipopts
             ${PICO_LWIP_CONTRIB_PATH}/apps/ping
             )
     target_link_libraries(picow_freertos_ping_sys
+            hardware_adc
             pico_cyw43_arch_lwip_sys_freertos
             pico_stdlib
             pico_lwip_iperf
             FreeRTOS-Kernel-Heap4 # FreeRTOS kernel and dynamic heap
             )
     pico_add_extra_outputs(picow_freertos_ping_sys)
+    pico_enable_stdio_usb(picow_freertos_ping_sys 1)
+
 endif()
