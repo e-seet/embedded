@@ -36,20 +36,5 @@
     "raspberry-pi-pico.useCmakeTools": false,
     "raspberry-pi-pico.cmakePath": "${HOME}/.pico-sdk/cmake/v3.28.6/bin/cmake",
     "raspberry-pi-pico.ninjaPath": "${HOME}/.pico-sdk/ninja/v1.12.1/ninja",
-	"raspberry-pi-pico.python3Path": "${HOME}/.pico-sdk/python/3.12.1/python.exe",
-	"files.associations": {
-		"*.embeddedhtml": "html",
-		"*.py": "python",
-		"*.vue": "vue",
-		"uart.h": "c",
-		"portasm.h": "c",
-		"freertos.h": "c",
-		"stdlib.h": "c",
-		"adc.h": "c",
-		"cyw43_arch.h": "c",
-		"irq.h": "c",
-		"semphr.h": "c",
-		"task.h": "c",
-		"stdio.h": "c"
-	}
+    "raspberry-pi-pico.python3Path": "${HOME}/.pico-sdk/python/3.12.1/python.exe"
 }

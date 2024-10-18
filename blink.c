@@ -1,167 +1,136 @@
+// Lab 6
+/*
+pseudo code
+// Initialize PID controller parameters
+Kp = 1.0
+Ki = 0.1
+Kd = 0.01
+
+// Initialize variables
+setpoint = 100.0
+current_value = 0.0
+integral = 0.0
+prev_error = 0.0
+
+// Initialize simulation parameters
+time_step = 0.1
+num_iterations = 100
+
+// Main control loop
+for i = 0 to num_iterations - 1:
+    // Compute error
+    error = setpoint - current_value
+
+    // Update integral term
+    integral += error
+
+    // Compute derivative term
+    derivative = error - prev_error
+
+    // Compute control signal
+    control_signal = Kp * error + Ki * integral + Kd * derivative
+
+    // Update previous error
+    prev_error = error
+
+    // Simulate motor dynamics (for demonstration purposes)
+    motor_response = control_signal * 0.1
+
+    // Update current position
+    current_value += motor_response
+
+    // Display results
+    Print "Iteration ", i, ": Control Signal = ", control_signal, ", Current Position = ", current_value
+
+    // Sleep for the time step (for demonstration purposes)
+    Sleep for time_step seconds
+*/
+
+// End of main control loop
+
 #include <stdio.h>
-#include "pico/stdlib.h"
-#include "FreeRTOS.h"
-#include "FreeRTOSConfig.h"
-#include "task.h"
-#include "semphr.h"
-#include "hardware/adc.h"
+#include <stdlib.h>
+#include <math.h>
+#include <unistd.h>  // For usleep
+#include "unistd.h"  // For usleep
 
-#define NUM_DATA_POINTS 10
+// origianl code
+// float Kp = 2.0; 
+// float Ki = 0.2; 
+// float Kd = 0.02; 
 
-#define BAUD_RATE 115200
+// pseudo code
+float Kp = 1.0; 
+float Ki = 0.1; 
+float Kd = 0.01; 
 
-int currentIndex = 0;
-float temperatureReadings[NUM_DATA_POINTS] = {0.0};
+// original
+// Function to compute the control signal
+// float compute_pid(float setpoint, float current_value, float *integral, float *prev_error) {
 
-SemaphoreHandle_t dataMutex;
+//     float error = current_value - setpoint;
+    
+//     *integral += error;
+    
+//     float derivative = error - *prev_error;
+    
+//     float control_signal = Kp * error + Ki * (*integral) + Kd * derivative * 0.1;
+    
+//     *prev_error = current_value;
+    
+//     return control_signal;
+// }
 
-TaskHandle_t readTemperatureTaskHandle;
-TaskHandle_t calculateMovingAverageTaskHandle;
-TaskHandle_t calculateSimpleAverageTaskHandle;
-TaskHandle_t printDataTaskHandle;
+// from pseudo code
+// Function to compute the control signal
+float compute_pid(float setpoint, float current_value, float *integral, float *prev_error) {
 
-// Function prototypes with new names
-void ReadTemperatureTask(void *pvParameters);
-void CalculateMovingAverageTask(void *pvParameters);
-void CalculateSimpleAverageTask(void *pvParameters);
-void PrintDataTask(void *pvParameters);
-
-
-// Application stack overflow hook
-void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName) {
-    printf("Stack overflow in task: %s\n", pcTaskName);
-    // Handle the stack overflow, perhaps reset the system or halt
-    for(;;); // Loop forever to halt the system (for debugging)
-}
-
-// Application malloc failed hook
-void vApplicationMallocFailedHook(void) {
-    printf("Memory allocation failed!\n");
-    // Handle malloc failure, perhaps reset the system or halt
-    for(;;); // Loop forever to halt the system (for debugging)
-}
-
-uint32_t ulSetInterruptMask(void) {
-    // Disable interrupts
-    __asm volatile ("cpsid i");
-    return 0;
-}
-
-void vClearInterruptMask(uint32_t mask) {
-    // Enable interrupts
-    __asm volatile ("cpsie i");
-}
-
-void vStartFirstTask(void) {
-    __asm volatile (
-        "ldr r0, =0xE000ED08\n"  /* Load address of vector table into R0. */
-        "ldr r0, [r0]\n"         /* Load the first entry of the vector table into R0 (initial stack pointer). */
-        "msr msp, r0\n"          /* Set the stack pointer to the value of R0. */
-        "cpsie i\n"              /* Enable interrupts. */
-        "svc 0\n"                /* Start the first task by issuing a supervisor call. */
-    );
-}
-
-void vRestoreContextOfFirstTask(void) {
-    // Your implementation here
+    float error = setpoint - current_value;
+    
+    *integral += error;
+    
+    float derivative = error - *prev_error;
+    
+	// original code
+	// float control_signal = Kp * error + Ki * (*integral) + Kd * derivative * 0.1;
+	//pseduo code
+    float control_signal = (Kp * error) + (Ki * (*integral)) + (Kd * derivative);
+    
+    *prev_error = error;	
+    
+    return control_signal;
 }
 
 int main() {
     stdio_init_all();
-    adc_init();
-    adc_set_temp_sensor_enabled(true);
-    dataMutex = xSemaphoreCreateMutex();
+
+    float setpoint = 100.0;  // Desired position
+    float current_value = 0.0;  // Current position
+    float integral = 0.0;  // Integral term
+    float prev_error = 0.0;  // Previous error term
     
-    // Create four tasks
-    xTaskCreate(ReadTemperatureTask, "ReadTempTask", configMINIMAL_STACK_SIZE, NULL, 2, &readTemperatureTaskHandle);
-    xTaskCreate(CalculateMovingAverageTask, "CalcMovAvgTask", configMINIMAL_STACK_SIZE, NULL, 2, &calculateMovingAverageTaskHandle);
-    xTaskCreate(CalculateSimpleAverageTask, "CalcSimpleAvgTask", configMINIMAL_STACK_SIZE, NULL, 2, &calculateSimpleAverageTaskHandle);
-    xTaskCreate(PrintDataTask, "PrintDataTask", configMINIMAL_STACK_SIZE, NULL, 1, &printDataTaskHandle);
+    float time_step = 0.1;  
+    int num_iterations = 100; 
+    // float error;
+
+    // Simulate the control loop
+    for (int i = 0; i < num_iterations; i++) 
+	{
+		float control_signal = compute_pid(setpoint, current_value, &integral, &prev_error);
+
+		// Motor response model ( origina lcode)
+        // float motor_response = control_signal * 0.05;  
+		// pseudo code
+		float motor_response = control_signal * 0.1;
+
+		current_value += motor_response;
+        printf("Iteration %d: Control Signal = %f, Current Position = %f\n", i, control_signal, current_value);
+        prev_error = current_value;
+
+		// to check
+		// usleep((useconds_t)(time_step * 1000000));
+		 sleep_ms((int)(time_step * 1000));  // Convert seconds to milliseconds
+    }
     
-    // Start the FreeRTOS scheduler
-    vTaskStartScheduler();
-    
-    while (1) {}
     return 0;
-}
-
-// Task that reads temperature sensor data and updates the temperatureReadings array
-void ReadTemperatureTask(void *pvParameters) {
-    (void)pvParameters;
-    while (1) {
-        uint16_t rawTemperature = adc_read();
-        float scalingFactor = 0.35;
-        float offset = 0.0;
-        float temperatureCelsius = (float)rawTemperature * scalingFactor + offset;
-        
-        // Take the dataMutex to protect the shared temperatureReadings array
-        xSemaphoreTake(dataMutex, portMAX_DELAY);
-        temperatureReadings[currentIndex] = temperatureCelsius;
-        currentIndex = (currentIndex + 1) % NUM_DATA_POINTS;
-        
-        // Give back the dataMutex
-        xSemaphoreGive(dataMutex);
-        
-        vTaskDelay(pdMS_TO_TICKS(1000)); // Wait for 1000 milliseconds (1 second)
-    }
-}
-
-// Task that calculates and updates the moving average of temperatureReadings
-void CalculateMovingAverageTask(void *pvParameters) {
-    (void)pvParameters;
-    while (1) {
-        float movingAverage = 0.0;
-        
-        // Take the dataMutex to protect the shared temperatureReadings array
-        xSemaphoreTake(dataMutex, portMAX_DELAY);
-        for (int i = 0; i < NUM_DATA_POINTS; i++) {
-            movingAverage += temperatureReadings[i];
-        }
-        movingAverage /= NUM_DATA_POINTS;
-        
-        // Give back the dataMutex
-        xSemaphoreGive(dataMutex);
-        
-        vTaskDelay(pdMS_TO_TICKS(1000)); // Wait for 1000 milliseconds (1 second)
-    }
-}
-
-// Task that calculates and updates the simple average of temperatureReadings
-void CalculateSimpleAverageTask(void *pvParameters) {
-    (void)pvParameters;
-    while (1) {
-        float simpleAverage = 0.0;
-        
-        // Take the dataMutex to protect the shared temperatureReadings array
-        xSemaphoreTake(dataMutex, portMAX_DELAY);
-        for (int i = 0; i < NUM_DATA_POINTS; i++) {
-            simpleAverage += temperatureReadings[i];
-        }
-        simpleAverage /= NUM_DATA_POINTS;
-        
-        // Give back the dataMutex
-        xSemaphoreGive(dataMutex);
-        
-        vTaskDelay(pdMS_TO_TICKS(1000)); // Wait for 1000 milliseconds (1 second)
-    }
-}
-
-// Task that prints the temperatureReadings array
-void PrintDataTask(void *pvParameters) {
-    (void)pvParameters;
-    while (1) {
-        printf("Temperature Readings: ");
-        
-        // Take the dataMutex to protect the shared temperatureReadings array
-        xSemaphoreTake(dataMutex, portMAX_DELAY);
-        for (int i = 0; i < NUM_DATA_POINTS; i++) {
-            printf("%.2f ", temperatureReadings[i]);
-        }
-        printf("\n");
-        
-        // Give back the dataMutex
-        xSemaphoreGive(dataMutex);
-        
-        vTaskDelay(pdMS_TO_TICKS(1000)); // Wait for 1000 milliseconds (1 second)
-    }
 }

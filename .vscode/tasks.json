@@ -23,8 +23,8 @@
             "command": "${env:HOME}/.pico-sdk/picotool/2.0.0/picotool/picotool",
             "args": [
                 "load",
-                "${workspaceFolder}/build/blink.uf2",
-                "-f"
+                "${command:raspberry-pi-pico.launchTargetPath}",
+                "-fx"
             ],
             "presentation": {
                 "reveal": "always",
@@ -51,7 +51,7 @@
             ],
             "problemMatcher": [],
             "windows": {
-                "command": "${env:USERPROFILE}/.pico-sdk/openocd/0.12.0+dev/openocd.exe"
+                "command": "${env:USERPROFILE}/.pico-sdk/openocd/0.12.0+dev/openocd.exe",
             }
         }
     ]
